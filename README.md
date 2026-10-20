@@ -1,5 +1,7 @@
 # go-api-template
 
+[English](README.en.md) | **简体中文**
+
 一个 **Go Web API 学习型模板**。它不是企业级脚手架，而是刻意保持简单、
 可以直接复制改造、并且配有一套从零手动重建教程（[docs/init/](docs/init/00-overview.md)）的小项目。
 
