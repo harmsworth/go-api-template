@@ -1,0 +1,13 @@
+# 本地开发配置。
+# 生产环境的敏感信息（如 DSN 密码、JWT secret）不应放在配置文件里，
+# 见 docs/next-step.md 的升级方向。
+server:
+  addr: ":8080"
+
+database:
+  dsn: "root:123456@tcp(localhost:3306)/todo_x?charset=utf8mb4&parseTime=True&loc=UTC"
+
+jwt:
+  secret: "dev-only-secret-change-me"
+  ttl_hours: 24
+  issuer: "go-api-template"

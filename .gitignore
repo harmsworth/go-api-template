@@ -1,0 +1,14 @@
+# 构建产物
+bin/
+*.test
+coverage.out
+
+# 编辑器
+.idea/
+.vscode/
+
+# 日志
+*.log
+
+# 注意：gen/go 下的生成代码是“故意提交”的，
+# 这样使用者 clone 后不需要先执行 buf generate 也能编译通过。

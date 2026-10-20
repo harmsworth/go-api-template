@@ -1,0 +1,6 @@
+version: v2
+plugins:
+  # 使用本地 protoc-gen-go 插件（go install google.golang.org/protobuf/cmd/protoc-gen-go@latest）
+  - local: protoc-gen-go
+    out: gen/go
+    opt: paths=source_relative

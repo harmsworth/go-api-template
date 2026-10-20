@@ -1,0 +1,20 @@
+# 本地开发环境：只包含 MySQL，其他中间件以后按需再加（见 docs/next-step.md）。
+# 启动: docker compose up -d
+# 停止: docker compose down
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: go-api-template-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: "123456"
+      MYSQL_DATABASE: todo_x
+    ports:
+      - "3306:3306"
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+volumes:
+  mysql-data:

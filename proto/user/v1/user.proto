@@ -1,0 +1,91 @@
+syntax = "proto3";
+
+// user.v1 定义 User 资源和它的 API 契约。
+// 本文件是 API Contract：它描述“有什么接口、参数是什么”，
+// 实际的 HTTP 路由由 internal/app/router.go 明确注册。
+package user.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "go-api-template/gen/go/user/v1;userv1";
+
+// User 是本模板唯一的资源类型。
+// name 是资源名，格式固定为 "users/{id}"（AIP resource name 约定）。
+message User {
+  string name = 1;  // 例如: users/1
+  string email = 2;
+  string display_name = 3;
+  google.protobuf.Timestamp create_time = 4;
+  google.protobuf.Timestamp update_time = 5;
+}
+
+// ---- 标准方法：Create / Get / List / Update / Delete（AIP-131~135）----
+
+message CreateUserRequest {
+  string email = 1 [(buf.validate.field).string.email = true];
+  // bcrypt 只取前 72 字节，这里在契约层就限制长度。
+  string password = 2 [(buf.validate.field).string = {min_len: 8, max_len: 72}];
+  string display_name = 3 [(buf.validate.field).string = {min_len: 1, max_len: 100}];
+}
+
+message GetUserRequest {
+  string name = 1 [(buf.validate.field).string.pattern = "^users/[0-9]+$"];
+}
+
+// AIP-158 分页：page_size=0 表示使用服务端默认值（20）。
+message ListUsersRequest {
+  int32 page_size = 1 [(buf.validate.field).int32 = {gte: 0, lte: 100}];
+  string page_token = 2;
+}
+
+message ListUsersResponse {
+  repeated User users = 1;
+  string next_page_token = 2;
+}
+
+message UpdateUserRequest {
+  string name = 1 [(buf.validate.field).string.pattern = "^users/[0-9]+$"];
+  string display_name = 2 [(buf.validate.field).string = {min_len: 1, max_len: 100}];
+}
+
+message DeleteUserRequest {
+  string name = 1 [(buf.validate.field).string.pattern = "^users/[0-9]+$"];
+}
+
+// ---- 自定义方法（AIP-136）：不适合套标准方法的动作 ----
+
+message RegisterRequest {
+  string email = 1 [(buf.validate.field).string.email = true];
+  string password = 2 [(buf.validate.field).string = {min_len: 8, max_len: 72}];
+  string display_name = 3 [(buf.validate.field).string = {min_len: 1, max_len: 100}];
+}
+
+message LoginRequest {
+  string email = 1 [(buf.validate.field).string.email = true];
+  string password = 2 [(buf.validate.field).string.min_len = 1];
+}
+
+message ChangePasswordRequest {
+  string name = 1 [(buf.validate.field).string.pattern = "^users/[0-9]+$"];
+  string current_password = 2 [(buf.validate.field).string.min_len = 1];
+  string new_password = 3 [(buf.validate.field).string = {min_len: 8, max_len: 72}];
+}
+
+// TokenResponse：注册/登录成功后返回访问令牌和用户信息。
+message TokenResponse {
+  string access_token = 1;
+  User user = 2;
+}
+
+service UserService {
+  rpc CreateUser(CreateUserRequest) returns (User);
+  rpc GetUser(GetUserRequest) returns (User);
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+  rpc UpdateUser(UpdateUserRequest) returns (User);
+  rpc DeleteUser(DeleteUserRequest) returns (google.protobuf.Empty);
+  rpc Register(RegisterRequest) returns (TokenResponse);
+  rpc Login(LoginRequest) returns (TokenResponse);
+  rpc ChangePassword(ChangePasswordRequest) returns (google.protobuf.Empty);
+}
