@@ -139,6 +139,36 @@ func parseResourceID(name string) (int64, error) {
 	return id, nil
 }
 
+// authorizeOwner 校验当前登录用户是否有权操作 URL 指向的资源。
+// 通过时返回资源 ID；不通过时已经写好响应，调用方直接 return。
+//
+// 这里只做"属主"判断：JWT 里的 userID 必须等于路径里的 users/{id}。
+// 之所以放在 Handler 而不是 Service——这个判断只用到协议层数据
+// （JWT userID + 路径参数），不涉及任何业务规则或存储访问；
+// 下沉到 Service 只会让业务层被迫接触 HTTP 概念。
+func authorizeOwner(c *gin.Context) (int64, bool) {
+	currentID, ok := UserIDFrom(c)
+	if !ok {
+		// 受保护路由必定经过 JWTAuth，取不到说明路由或中间件装配错了。
+		// 这是服务端配置问题，不是调用方权限不足，所以返回 500 而不是 403。
+		slog.Error("受保护路由缺少 userID，检查路由是否挂载了 JWTAuth", "path", c.FullPath())
+		writeError(c, http.StatusInternalServerError, "INTERNAL", "internal error")
+		return 0, false
+	}
+
+	targetID, err := parseResourceID(resourceName(c.Param("id")))
+	if err != nil {
+		writeError(c, http.StatusBadRequest, "INVALID_ARGUMENT", "invalid user name")
+		return 0, false
+	}
+
+	if currentID != targetID {
+		writeError(c, http.StatusForbidden, "PERMISSION_DENIED", "permission denied")
+		return 0, false
+	}
+	return targetID, true
+}
+
 // userToProto 把数据库模型转换成 proto 资源。
 // 模型与契约分开：PasswordHash 永远不出现在响应里。
 func userToProto(u *User) *userv1.User {
@@ -235,9 +265,9 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 	if !h.validate(c, &req) {
 		return
 	}
-	id, err := parseResourceID(req.Name)
-	if err != nil {
-		writeError(c, http.StatusBadRequest, "INVALID_ARGUMENT", "invalid user name")
+	// 属主校验：只能改自己的昵称。失败时 authorizeOwner 已写好 403/400/500。
+	id, ok := authorizeOwner(c)
+	if !ok {
 		return
 	}
 	u, err := h.service.UpdateUser(c.Request.Context(), id, req.DisplayName)
@@ -254,9 +284,9 @@ func (h *Handler) DeleteUser(c *gin.Context) {
 	if !h.validate(c, req) {
 		return
 	}
-	id, err := parseResourceID(req.Name)
-	if err != nil {
-		writeError(c, http.StatusBadRequest, "INVALID_ARGUMENT", "invalid user name")
+	// 属主校验：只能删自己。
+	id, ok := authorizeOwner(c)
+	if !ok {
 		return
 	}
 	if err := h.service.DeleteUser(c.Request.Context(), id); err != nil {
@@ -306,7 +336,8 @@ func (h *Handler) Login(c *gin.Context) {
 }
 
 // ChangePassword POST /v1/users/:id/password
-// userID 必须来自 JWT（router 里挂了 JWTAuth），路径 id 只用来定位资源。
+// userID 来自 JWT（router 里挂了 JWTAuth），路径 id 既用来定位资源，
+// 也用来与 userID 做属主比对——只有本人能改自己的密码。
 func (h *Handler) ChangePassword(c *gin.Context) {
 	var req userv1.ChangePasswordRequest
 	if !h.bind(c, &req) {
@@ -316,9 +347,9 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 	if !h.validate(c, &req) {
 		return
 	}
-	id, err := parseResourceID(req.Name)
-	if err != nil {
-		writeError(c, http.StatusBadRequest, "INVALID_ARGUMENT", "invalid user name")
+	// 属主校验：只能改自己的密码。
+	id, ok := authorizeOwner(c)
+	if !ok {
 		return
 	}
 	if err := h.service.ChangePassword(c.Request.Context(), id, req.CurrentPassword, req.NewPassword); err != nil {

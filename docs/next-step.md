@@ -9,7 +9,7 @@
 
 ---
 
-## Level 1（当前状态）
+## Level 1：基础模板（V1.0，已完成）
 
 - User CRUD（Create / Get / List / Update / Delete）
 - Register / Login / Change Password
@@ -17,12 +17,26 @@
 - golang-migrate 管理 schema
 - proto-first 契约 + protovalidate
 
+## 当前进度
+
+| 项                        | 状态         | 说明                                                                                                                              |
+| ------------------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| V1.0 基础模板             | 已完成       | tag `v0.1.0`：User CRUD + Register/Login/ChangePassword + JWT + golang-migrate + proto 契约                                         |
+| 资源属主校验（授权）      | **已完成**   | 仅三个写接口：`PATCH /users/:id`、`DELETE /users/:id`、`POST /users/:id/password`。实现记录见 [second/01-ownership-authorization.md](./second/01-ownership-authorization.md) |
+| Refresh Token             | 待实现       | —                                                                                                                                 |
+| Password Reset            | 待实现       | —                                                                                                                                 |
+| 分页增强（opaque token）  | 待实现       | —                                                                                                                                 |
+| Filtering / Ordering      | 待实现       | —                                                                                                                                 |
+| 角色 / 管理员权限         | 待实现       | 属主校验只覆盖"本人"，不覆盖"管理员改别人"                                                                                        |
+
+> 只读接口 `GET /users` 和 `GET /users/:id` 仍保持"登录即可读"，未做属主授权；是否收紧属于产品决策。
+
 ## Level 2：认证与查询的补全
 
 | 项                         | 什么时候引入                                                                                                                                                                                                                                                                   |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Refresh Token              | Access Token 变短、需要"记住登录"但不延长泄露窗口时。做法：新增 refresh_tokens 表 + 签发/轮换接口                                                                                                                                                                              |
-| 资源属主校验（授权）       | 暴露"改/删他人资源"成为真实风险时。现状：JWTAuth 只做认证（401），ChangePassword/UpdateUser/DeleteUser 未比对路径 id 与 JWT 身份；`UserIDFrom` 已备好但未被调用。做法：handler 层用 `UserIDFrom` 比对（纯协议数据 → 403），涉及角色判断（如管理员）则放 service 层返回领域错误 |
+| 资源属主校验（授权）       | **已完成**（仅三个写接口）。`PATCH /users/:id`、`DELETE /users/:id`、`POST /users/:id/password` 在 Handler 层用 `UserIDFrom` 比对路径 id 与 JWT 身份，不符返回 403 `PERMISSION_DENIED`；Context 缺少 userID 视为服务端装配错误，返回 500。`GET /users` 与 `GET /users/:id` 未加属主限制。实现记录见 [second/01-ownership-authorization.md](./second/01-ownership-authorization.md)。后续引入角色（如管理员）时，判断变为"属主或管理员"，应下沉到 service 层返回领域错误 |
 | Password Reset（忘记密码） | 有真实用户、能收邮件之后。涉及 reset token 持久化、过期控制、邮件服务，是完整的子项目，第一版刻意没做                                                                                                                                                                          |
 | 分页增强                   | 列表变大后把 page_token 换成 opaque token（base64 编码的 cursor），而不是现在的明文 offset。原理与改法见 [pagination-tokens.md](./pagination-tokens.md)                                                                                                                        |
 | Filtering / Ordering       | 列表接口真的需要筛选排序时，在 proto 里加 filter/order_by 字段并在 Repository 层拼接（注意防注入）                                                                                                                                                                             |
