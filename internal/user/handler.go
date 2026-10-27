@@ -69,7 +69,8 @@ func (h *Handler) bind(c *gin.Context, msg proto.Message) bool {
 	// io.ReadAll 把 body 流整体读成它；% x 逐字节按十六进制打印（1 字节 = 2 个十六进制字符）。
 	// 对照：%v 打印是十进制数字（[123 13 10 ...]），%s / string(data) 才是文本视图。
 	fmt.Printf("bind: data hex = % x\n", data)
-	slog.Info("bind: raw request body",
+	slog.Info(
+		"bind: raw request body",
 		"len", len(data),
 		"bytes", data, // []byte 原值（slog 会转成字符串，故与 text 相同）
 		"text", string(data), // 转成 string 后的文本
@@ -266,6 +267,11 @@ func (h *Handler) DeleteUser(c *gin.Context) {
 }
 
 // Register POST /v1/auth/register
+//
+// 成功返回 200 而不是 201：本端点属于 /auth 命名空间，定位是"注册并立即换发凭据"。
+// 客户端拿到 accessToken 就去访问受保护接口，不会去跟进新建的 user 资源；
+// 因此它与 /auth/login 归为同一类（凭据颁发），共用 200，客户端无需按端点分支。
+// "资源已创建"的语义由面向集合的 POST /v1/users（201）承担。
 func (h *Handler) Register(c *gin.Context) {
 	var req userv1.RegisterRequest
 	if !h.bind(c, &req) {
@@ -279,7 +285,7 @@ func (h *Handler) Register(c *gin.Context) {
 		h.mapError(c, err)
 		return
 	}
-	writeProto(c, http.StatusCreated, &userv1.TokenResponse{AccessToken: token, User: userToProto(u)})
+	writeProto(c, http.StatusOK, &userv1.TokenResponse{AccessToken: token, User: userToProto(u)})
 }
 
 // Login POST /v1/auth/login

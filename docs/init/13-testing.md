@@ -461,8 +461,8 @@ func TestHandlerLogin(t *testing.T) {
 	// 先注册一个真实用户（走完整 Handler 流程，密码是真实 bcrypt 哈希）。
 	w := doJSON(r, http.MethodPost, "/api/v1/auth/register", "",
 		`{"email":"bob@example.com","password":"password123","displayName":"Bob"}`)
-	if w.Code != http.StatusCreated {
-		t.Fatalf("注册状态码应为 201，实际 %d，body=%s", w.Code, w.Body.String())
+	if w.Code != http.StatusOK {
+		t.Fatalf("注册状态码应为 200，实际 %d，body=%s", w.Code, w.Body.String())
 	}
 
 	w = doJSON(r, http.MethodPost, "/api/v1/auth/login", "",

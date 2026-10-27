@@ -67,14 +67,14 @@ new-login.json  patch.json        chpwd.json    chpwd-new.json
 
 ## 5. 冒烟全流程：把什么命令跑一遍
 
-### 5.1 注册成功（201）
+### 5.1 注册成功（200）
 
 ```powershell
 Set-Content -Path reg.json -Value '{"email":"smoke@example.com","password":"password123","displayName":"Smoke"}' -Encoding utf8
 curl.exe -s -i -X POST http://localhost:8080/api/v1/auth/register -H "Content-Type: application/json" --data "@reg.json"
 ```
 
-预期 `HTTP/1.1 201 Created`，响应体（protojson 缩进输出、字段为 camelCase）：
+预期 `HTTP/1.1 200 OK`，响应体（protojson 缩进输出、字段为 camelCase）：
 
 ```json
 {
@@ -307,7 +307,7 @@ curl.exe -s -X POST http://localhost:8080/api/v1/auth/login -H "Content-Type: ap
 | 请求                                 | 预期状态码 |
 | ------------------------------------ | ---------- |
 | `GET /healthz`                       | 200        |
-| `POST /api/v1/auth/register`（合法）     | 201        |
+| `POST /api/v1/auth/register`（合法）     | 200        |
 | `POST /api/v1/auth/register`（非法邮箱） | 400        |
 | `POST /api/v1/auth/register`（重复邮箱） | 409        |
 | `POST /api/v1/auth/login`（正确密码）    | 200        |

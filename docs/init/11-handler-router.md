@@ -328,7 +328,7 @@ func (h *Handler) Register(c *gin.Context) {
 		h.mapError(c, err)
 		return
 	}
-	writeProto(c, http.StatusCreated, &userv1.TokenResponse{AccessToken: token, User: userToProto(u)})
+	writeProto(c, http.StatusOK, &userv1.TokenResponse{AccessToken: token, User: userToProto(u)})
 }
 
 // Login POST /api/v1/auth/login

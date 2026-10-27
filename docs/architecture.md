@@ -78,7 +78,20 @@ Wire 解决的是"依赖图复杂到人工维护容易出错"的问题——本�
 没有引入 grpc-gateway：那是为了"gRPC 服务自动获得 HTTP 接口"，
 本项目没有 gRPC 服务，手动注册 8 条路由更直白。
 
-## 7. 错误处理约定
+## 7. HTTP 状态码约定
+
+成功路径按"资源创建"与"动作执行"区分：
+
+| 端点性质 | 状态码 | 本项目对应 |
+| --- | --- | --- |
+| 在资源集合上创建资源 | 201 | `POST /api/v1/users` |
+| 查询 / 更新 / 删除 / 凭据颁发 | 200 | `GET·PATCH·DELETE /api/v1/users/:id`、`GET /api/v1/users`、`POST /api/v1/auth/*` |
+
+`/auth/register` 虽然内部创建了 User，但端点定位是"注册并立即换发凭据"——客户端拿到 accessToken 就去访问受保护接口，不会跟进新资源；它与 `/auth/login` 同属凭据颁发，因此共用 200，客户端无需按端点分支。资源创建的语义由面向集合的 `POST /api/v1/users`（201）承担。
+
+201 唯一未满足的是配套惯例：RFC 9110 建议 201 附带 `Location` 指向新资源，本项目暂未发送（响应体的 `name` 字段已含资源名 `users/{id}`）。若客户端需要直接跟随，应补 `Location`，而不是把状态码降级为 200。
+
+错误路径由 `mapError` 统一映射：
 
 ```text
 Repository / Service 返回领域错误（internal/user/errors.go 哨兵错误）
