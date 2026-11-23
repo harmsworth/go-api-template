@@ -1,0 +1,38 @@
+---
+description: 本仓库以文档为交付物；任何行为、命令、接口或取舍变更后，同步 README 与 docs 各章节的规则
+alwaysApply: true
+enabled: true
+---
+
+# 文档同步
+
+## 为什么强制
+
+`docs/` 不是附赠说明，而是本项目的主要产物：`docs/level1/` 是 16 章从零重建教程，读者会照着逐字执行。代码与文档不一致时，教程会直接失败。因此**改代码必须同时判断哪些文档需要改**。
+
+## 各类变更对应的文档
+
+| 变更 | 必须同步 |
+| --- | --- |
+| 新增/修改/删除 HTTP 接口 | `proto/user/v1/user.proto`、`internal/app/router.go`、`docs/architecture.md` 的请求旅程与错误映射、`README.md` 的 curl 示例（若有）、相关 level1/level2 章节 |
+| 修改 Makefile target 或命令 | `README.md` 的"常用命令"表、`docs/level1/05-migrate.md` 的命令段、`CODEBUDDY.md` 的命令表 |
+| 新增迁移 | 对应 level1/level2 章节的"创建什么文件"与"小检查"、`docs/architecture.md`（若改变分层或数据模型） |
+| 调整配置字段 | `configs/config.yaml`、`internal/platform/config/config.go`、`docs/level1/03-config.md`、`README.md` |
+| 认证/令牌行为变化 | `docs/architecture.md`、`docs/level1/10-jwt.md`、`docs/level2/06-service-credentials.md` 或 `07-service-password-reset.md` |
+| 查询/分页/过滤变化 | `docs/pagination-tokens.md`、`docs/level2/08-query-layer.md` |
+| 引入或推迟依赖 | `docs/next-step.md` 的状态表与理由 |
+| 新增常见坑 | `docs/level1/15-review.md` 的"常见坑" |
+
+## 写作格式
+
+- `docs/level1/NN-*.md` 保持既有七段结构：`这一阶段做什么` → `为什么要做` → `手动执行什么命令` → `创建什么文件` → `把什么代码写进去` → `解释关键代码` → `做一个小检查`。`15-review.md` 是收尾复盘，采用"分层图 / 取舍问答 / 自检清单 / 常见坑 / 下一步"结构，属于例外。
+- `docs/level2/*.md` 与 level1 保持同样的七段结构；`00-overview.md` 是总览、`14-review.md` 是复盘，属于例外。
+- 文档中的代码块必须与仓库真实代码一致（可运行、路径正确、Windows PowerShell 语法用 `$env:`）。
+- 中文正文，代码、命令、路径、标识符保持原样；命令注明是在 PowerShell 还是 make 下执行。
+- 不写"未来可能会……"的模糊描述；未实现的能力放在 `docs/next-step.md`，不要混进已完成章节。
+
+## 禁止事项
+
+- 不为了"看起来完整"而给未实现的功能补文档。
+- 不在多个文档复制同一段解释；需要复用时直接写仓库路径（如"见 `docs/level1/05-migrate.md`"），不要凭印象构造相对链接。
+- 不回滚用户尚未提交的文档重命名或删除；改动目录结构前先看 `git status`，不要顺手"整理"别人的改动。

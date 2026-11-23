@@ -1,0 +1,48 @@
+---
+description: 数据库 schema、迁移文件、GORM model 与 proto 契约的修改纪律；改表、改接口契约时必读
+alwaysApply: true
+enabled: true
+---
+
+# Schema 与契约
+
+## 数据库 schema
+
+- **禁止 `AutoMigrate`，禁止在启动时执行迁移**。`internal/user/model.go`（"永远不会调用 AutoMigrate"）、`internal/platform/database/mysql.go`（"只连接，不执行任何 migration"）与 `cmd/server/main.go`（"这里不会执行数据库 migration"）中的注释是刻意保留的护栏，不要删除。
+- schema 唯一来源是 `migrations/`，通过 `make migrate-up` / `make migrate-down` 显式执行。
+- 文件命名固定为 `{6 位版本号}_{snake_case 描述}.up.sql` / `.down.sql`，版本号连续递增。
+- **每个 up 必须有能完全抵消它的 down**：建表 ↔ 删表、加列 ↔ 删列、加索引 ↔ 删索引。只写 up 的迁移不可接受。
+- 已提交/已应用的迁移文件只读。修正错误要新增下一个版本，不得改写历史文件（`schema_migrations` 只认版本号，改写会导致不同环境 schema 分叉）。
+- DDL 使用 `utf8mb4`；时间列沿用 `TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP(6)`（`updated_at` 加 `ON UPDATE CURRENT_TIMESTAMP(6)`）。
+
+## Model 与 SQL 的契约
+
+- `internal/user/model.go` 的字段、`size`、`not null`、默认值、索引名必须与最新迁移一致。改一边必须同时改另一边。
+- 索引名显式声明，例如 `uniqueIndex:idx_users_email` 对应 SQL 里的 `idx_users_email`。
+- `TableName()` 显式返回表名，不依赖 GORM 复数推导。
+- 可用 `docker exec -it go-api-template-mysql mysql -uroot -p123456 -e "DESCRIBE todo_x.users;"` 核对实际结构。
+
+## proto 契约
+
+- `proto/user/v1/user.proto` 是 API Contract。字段变更、rpc 增删、校验规则调整都先改 proto。
+- 校验规则写在 proto（`buf.validate.field`），不要在 Handler 里重复实现。
+- 改完 proto 必须执行 `buf generate`，并**提交 `gen/go` 与 `gen/openapi/openapi.yaml`**（本仓库故意提交生成物，保证 clone 即可编译、即可查看文档）。
+- 每个 RPC 必须带 `google.api.http` 注解：它是 `gen/openapi/openapi.yaml` 的唯一输入，没有注解时文档的 `paths` 为空。注解路径必须与 `internal/app/router.go` 逐条一致，改一边必须同步另一边。
+- 不要删除 `buf.yaml` 中 `RPC_REQUEST_STANDARD_NAME` / `RPC_RESPONSE_STANDARD_NAME` / `RPC_REQUEST_RESPONSE_UNIQUE` 三个 except：AIP 风格直接返回资源，与 STANDARD 规则天然冲突。
+
+## 路由同步
+
+- `internal/app/router.go` 是运行时绑定，没有代码生成关系；但 proto 的 `google.api.http` 注解必须与它逐条对齐（用于生成 OpenAPI 文档）。新增/删除 rpc 必须同时改路由与注解。
+- 资源名统一 `users/{id}`；Gin 不支持段中冒号，动作型接口用 `/api/v1/users/:id/password` 形式。
+- 状态码约定：面向集合的创建 `POST /api/v1/users` 返回 201，其余成功路径返回 200。
+
+## 检查
+
+改完 schema 或契约后至少执行：
+
+```bash
+buf lint
+go build ./...
+go vet ./...
+go test ./...
+```

@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|write_to_file|replace_in_file",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"$CODEBUDDY_PROJECT_DIR/.codebuddy/hooks/gofmt.ps1\"",
+            "timeout": 20
+          }
+        ]
+      }
+    ]
+  }
+}

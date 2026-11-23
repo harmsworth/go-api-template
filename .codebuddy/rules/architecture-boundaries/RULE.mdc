@@ -1,0 +1,42 @@
+---
+description: go-api-template 的分层边界与手工依赖注入方式；新增业务能力、platform 能力或调整依赖时必读
+alwaysApply: true
+enabled: true
+---
+
+# 架构边界
+
+## 依赖方向
+
+```text
+Handler → Service → Repository → GORM → MySQL
+```
+
+- 只能向下依赖，禁止反向引用（Repository 不得 import Handler，Service 不得 import Gin）。
+- 接口由**消费者**定义：`Repository` / `RefreshTokenRepository` / `PasswordResetRepository` / `TokenIssuer` / `MailSender` 在 `internal/user/service.go`；`Service` 在 `internal/user/handler.go`。
+- 实现结构体保持未导出（`repository`、`service`），构造函数返回接口。新增方法时只加 Service 真正调用的方法，不要照搬整个 GORM 能力。
+
+## 组装
+
+- 所有依赖在 `cmd/server/main.go` 手工构造、手工传入。**不引入 Wire 或任何 DI 框架**。
+- 业务包不得自己读配置文件、环境变量或调用 `gorm.Open`；`internal/platform/*` 的实例一律由 `main.go` 构造后注入。
+- 新增 platform 能力（如缓存、对象存储）时：先定义最小接口，放在使用它的 Feature 包内，实现放 `internal/platform/<capability>/`，在 `main.go` 注入，并在 `docs/next-step.md` 记录引入理由。
+
+## 包的职责
+
+- `internal/app/`：只做路由注册与 HTTP Server 包装，不含业务逻辑。
+- `internal/user/`：Package by Feature，model / repository / service / handler / middleware / errors 全部收在同一包。
+- 新增 Feature 时复制这一结构到 `internal/<feature>/`，不要在根目录新建 `controllers/`、`services/`、`models/` 之类的技术分层目录。
+
+## 错误处理
+
+- 领域错误统一用 `internal/user/errors.go` 的哨兵错误，用 `errors.Is` 判断。
+- Repository 必须把基础设施错误翻译成领域错误（如 MySQL 1062 → `ErrEmailAlreadyExists`，`gorm.ErrRecordNotFound` → `ErrUserNotFound`），不得把 GORM 错误漏给 Service。
+- Handler 的所有失败路径必须走 `mapError`，响应体固定 `{"error":{"code","message"}}`；新增错误类型时同时补 `mapError` 分支与测试。
+
+## 禁止事项
+
+- 不引入 gRPC / grpc-gateway / Redis / Kafka / OpenTelemetry / golangci-lint，除非需求已经出现并更新了 `docs/next-step.md`。
+- 不在 Handler 里写 SQL、在 Repository 里写业务规则、在 Service 里操作 `*gin.Context`。
+- 不用 `gin.Default()` 隐式装配中间件；路由文件里显式列出 `gin.Logger()`、`gin.Recovery()`。
+- 中间件认证失败必须调用 `c.Abort()`，只 `return` 会让后续 Handler 继续执行。
